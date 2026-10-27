@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 from shapely.geometry import shape, MultiLineString, LineString
 from shapely.ops import unary_union
@@ -74,6 +75,42 @@ st.markdown(
         color: #6b7280;
         font-size: 0.88rem;
         margin-top: 0.4rem;
+    }
+    .section-nav {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        display: flex;
+        gap: 1.5rem;
+        overflow-x: auto;
+        border-bottom: 1px solid #e5e7eb;
+        background: rgba(255, 255, 255, 0.97);
+        margin: 0.5rem 0 1.5rem;
+        scrollbar-width: none;
+    }
+    .section-nav::-webkit-scrollbar {
+        display: none;
+    }
+    .section-nav a {
+        flex: 0 0 auto;
+        padding: 0.7rem 0.15rem 0.65rem;
+        border-bottom: 3px solid transparent;
+        color: #6b7280;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .section-nav a.active {
+        border-bottom-color: #ff4b4b;
+        color: #1f2937;
+    }
+    .section-nav.is-fixed {
+        position: fixed;
+        top: 2.875rem;
+        z-index: 1000;
+    }
+    [id^="section-"] {
+        scroll-margin-top: 5rem;
     }
     </style>
     """,
@@ -725,7 +762,7 @@ st.markdown(
 st.markdown(
     """
     <div class="app-subtitle">
-        2026 서울시 빅데이터 활용 경진대회 -시각화 부문 출품작
+        빅데이터시각화실무 황철현 교수님 중간대체과제
     </div>
     """,
     unsafe_allow_html=True,
@@ -739,17 +776,117 @@ with summary_col2:
 
 
 # -----------------------------
-# 탭 구성
+# 섹션 내비게이션
 # -----------------------------
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["작품 소개", "수요와 공급의 공간적 분포", "자치구별 비교 분석", "사각지대 도출"]
+st.markdown(
+    """
+    <nav class="section-nav">
+        <a href="#section-intro" data-section="section-intro">작품 소개</a>
+        <a href="#section-distribution" data-section="section-distribution">수요와 공급의 공간적 분포</a>
+        <a href="#section-comparison" data-section="section-comparison">자치구별 비교 분석</a>
+        <a href="#section-blindspot" data-section="section-blindspot">사각지대 도출</a>
+    </nav>
+    """,
+    unsafe_allow_html=True,
+)
+
+components.html(
+    """
+    <script>
+    const parentWindow = window.parent;
+    const parentDocument = parentWindow.document;
+    const sectionIds = [
+        "section-intro",
+        "section-distribution",
+        "section-comparison",
+        "section-blindspot"
+    ];
+    const fixedTop = 46;
+
+    const updateActiveSection = () => {
+        const nav = parentDocument.querySelector(".section-nav");
+        if (!nav) {
+            return false;
+        }
+
+        const placeholder = nav.closest('[data-testid="stElementContainer"]') || nav.parentElement;
+        const placeholderHeight = placeholder.getBoundingClientRect().height;
+        const shouldFix = placeholder.getBoundingClientRect().top <= fixedTop;
+        const navWasFixed = nav.classList.contains("is-fixed");
+        if (shouldFix && !navWasFixed) {
+            const navRect = nav.getBoundingClientRect();
+            nav.style.left = `${navRect.left}px`;
+            nav.style.width = `${navRect.width}px`;
+        } else if (!shouldFix) {
+            nav.style.left = "";
+            nav.style.width = "";
+        }
+        nav.classList.toggle("is-fixed", shouldFix);
+        if (shouldFix) {
+            placeholder.style.minHeight = `${placeholderHeight}px`;
+        } else {
+            placeholder.style.minHeight = "";
+        }
+
+        const sections = sectionIds
+            .map((id) => parentDocument.getElementById(id))
+            .filter(Boolean);
+        const navLinks = parentDocument.querySelectorAll(".section-nav a");
+        if (sections.length !== sectionIds.length || navLinks.length !== sectionIds.length) {
+            return false;
+        }
+
+        const threshold = fixedTop + nav.getBoundingClientRect().height + 24;
+        let activeId = sectionIds[0];
+        sections.forEach((section) => {
+            if (section.getBoundingClientRect().top <= threshold) {
+                activeId = section.id;
+            }
+        });
+
+        navLinks.forEach((link) => {
+            link.classList.toggle("active", link.dataset.section === activeId);
+        });
+        return true;
+    };
+
+    const previousHandler = parentWindow.__sectionNavScrollHandler;
+    const previousTargets = parentWindow.__sectionNavScrollTargets || [];
+    previousTargets.forEach((target) => target.removeEventListener("scroll", previousHandler));
+    if (previousHandler) {
+        parentWindow.removeEventListener("resize", previousHandler);
+    }
+
+    const scrollTargets = [parentWindow];
+    let ancestor = parentDocument.querySelector(".section-nav").parentElement;
+    while (ancestor && ancestor !== parentDocument.body) {
+        const overflowY = parentWindow.getComputedStyle(ancestor).overflowY;
+        if (/(auto|scroll)/.test(overflowY) && ancestor.scrollHeight > ancestor.clientHeight) {
+            scrollTargets.push(ancestor);
+        }
+        ancestor = ancestor.parentElement;
+    }
+    scrollTargets.forEach((target) => target.addEventListener("scroll", updateActiveSection, { passive: true }));
+    parentWindow.addEventListener("resize", updateActiveSection);
+    parentWindow.__sectionNavScrollHandler = updateActiveSection;
+    parentWindow.__sectionNavScrollTargets = scrollTargets;
+
+    const setupInterval = parentWindow.setInterval(() => {
+        if (updateActiveSection()) {
+            parentWindow.clearInterval(setupInterval);
+        }
+    }, 100);
+    </script>
+    """,
+    height=0,
 )
 
 
 # -----------------------------
-# 탭 1. 작품 소개
+# 섹션 1. 작품 소개
 # -----------------------------
-with tab1:
+st.markdown('<div id="section-intro"></div>', unsafe_allow_html=True)
+with st.container():
     st.subheader("작품 소개")
     st.markdown(
         """
@@ -761,8 +898,8 @@ with tab1:
     st.markdown("### 무엇을 볼 수 있는가")
     draw_viz_cards()
 
-    st.markdown("### 팀 정보")
-    st.info("팀명: on-jeon(온전)")
+    st.markdown("### 학번 이름")
+    st.info("2670349 조민서")
 
     st.markdown("### 데이터 출처")
     with st.expander("서울 데이터허브 데이터 출처 보기", expanded=True):
@@ -796,9 +933,10 @@ with tab1:
 
 
 # -----------------------------
-# 탭 2. 수요와 공급의 공간적 분포
+# 섹션 2. 수요와 공급의 공간적 분포
 # -----------------------------
-with tab2:
+st.markdown('<div id="section-distribution"></div>', unsafe_allow_html=True)
+with st.container():
     st.subheader("수요와 공급의 공간적 분포")
     st.markdown(
         """
@@ -885,9 +1023,10 @@ with tab2:
 
 
 # -----------------------------
-# 탭 3. 자치구별 비교 분석
+# 섹션 3. 자치구별 비교 분석
 # -----------------------------
-with tab3:
+st.markdown('<div id="section-comparison"></div>', unsafe_allow_html=True)
+with st.container():
     st.subheader("자치구별 비교 분석")
     st.markdown(
         """
@@ -948,9 +1087,10 @@ with tab3:
 
 
 # -----------------------------
-# 탭 4. 사각지대 도출
+# 섹션 4. 사각지대 도출
 # -----------------------------
-with tab4:
+st.markdown('<div id="section-blindspot"></div>', unsafe_allow_html=True)
+with st.container():
     st.subheader("사각지대 도출")
     st.markdown(
         """
